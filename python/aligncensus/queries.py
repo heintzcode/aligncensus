@@ -24,38 +24,52 @@ class CensusQuery():
         assert(self.census_api_key is not None), "Use censusquery.add_census_api_key(key) before calling `create_request`"
         self.request = f"{self.census_database_url}?get={self.census_variable}&for={self.census_predicate}&key={self.census_api_key}"
     
-    def set_census_database_url(self, url, check_url=False):
+    def set_census_database_url(self, url):
         """
         Sets the `census_database_url` field, which can be found here: https://api.census.gov/data.html
         A request can access only one database at a time.
-        Set `check_url` to True to test that the URL is valid
         """
         self.census_database_url = url
-        if check_url:
-            self.check_url()
 
     def check_url(self):
         """
         Make a request to the US Census that returns a status 200 if the database URL is correct
         """
-        pass
+        request = f"{self.census_database_url}"
+        try:
+            response = requests.get(request)
+        except requests.exceptions.ConnectionError:
+            return False, "ConnectionError"
+        
+        if response.status_code == 200:
+            cvars_link = response.json().get("dataset")[0].get("c_variablesLink")
+            cvars_response = requests.get(cvars_link).json()
+            self.valid_census_variables = []
+            for variable, terms in cvars_response['variables'].items():
+                if "predicateOnly" in terms.keys() and terms["predicateOnly"] is True:
+                    pass
+                else:
+                    self.valid_census_variables.append(variable)
+            return True, None
+        else:
+            return False, response.status_code
 
-    def set_census_variable(self, variable, check_variable=False):
+    def set_census_variable(self, variable):
         """
         Sets the `census_variable` field, which is the column of data in the census database that is of interest
         Examples include age, ethnicity, income, etc. 
         Set `check_variable` to True to test that the variable is valid in the assigned dataset
         """
         self.census_variable = variable
-        if check_variable:
-            self.check_variable()
 
     def check_variable(self):
         """
         Make a request to the US Census that returns a status of 200 if the requested variable is valid 
         Requires that the `census_database` field has been set
         """
-        pass
+        assert(self.census_database_url is not None), "Set the census database url field first"
+        assert(self.valid_census_variables is not None), "Get the valid census variables for this db using check_url()"
+        assert(self.census_variable in self.valid_census_variables), f"Census variable not valid; for database {self.census_database_url} the variable must be one of {self.valid_census_variables}"
 
     def set_census_predicate(self, predicate, check_predicate=False):
         """
