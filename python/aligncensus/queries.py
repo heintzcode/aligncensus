@@ -55,12 +55,13 @@ class CensusQuery():
             self.census_api_key = keyfile.readline().rstrip()
             self.querychecker.api_key = self.census_api_key
 
-    def create_request(self):
+    def create_request(self, check_request):
         """
         First checks that all parts of the request are valid
         Slots the provided query parts into the correct syntax of a US Census API request
         """
-        self.querychecker.check_request()
+        if check_request:
+            self.querychecker.check_request()
         self.request = f"{self.census_database_url}?get={self.census_variable}&for={self.census_predicate}&key={self.census_api_key}"
     
     def response_code_is_good(self):
@@ -72,8 +73,12 @@ class CensusQuery():
         else:
             return False, f"Request returned an error response, status code: {self.response.status_code}"
             
-    def get_census_dataframe(self):
-        self.create_request()
+    def get_census_dataframe(self, check_request=True):
+        """
+        Make the request to the Census API for the data.
+        Recommended to leave check_request as True, it's kind of the point of this class
+        """
+        self.create_request(check_request)
         print(f"Sending request (abbreviated): {self.request[:150]}")
         self.response = requests.get(self.request)
         if self.response_code_is_good():
@@ -101,6 +106,7 @@ class QueryChecker():
         """
         Check each segment of the request in turn and provide helpful output if something fails
         """
+        print("Checking validity of the Census API request (may take a moment if API is slow)")
         assert(self.api_key is not None), f"Set the census api key with `CensusQuery.set_census_api_key` before checking or making request"
         assert(self.url is not None), f"Set the database url with `CensusQuery.set_census_database_url` before checking or making request"
         self.check_url()
@@ -142,7 +148,10 @@ class QueryChecker():
         """
         Ensure that the name of the predicate is available in the requested database
         """
-        assert(self.predicate in self.valid_predicates), f"Census predicate not valid; for database {self.url} the variable must be one of {self.valid_predicates}"
+        colon_index = self.predicate.find(":")
+        assert(colon_index > 0), f"Census predicate must begin with one of {self.valid_predicates} and end with ':'"
+        assert(colon_index < len(self.predicate)-1), f"Census predicate must have values listed after ':'"
+        assert(self.predicate[:colon_index] in self.valid_predicates), f"Census predicate '{self.predicate[:150]}...' not valid; for database {self.url} the predicate name must be one of {self.valid_predicates}"
 
 
 if __name__ == '__main__':
@@ -162,7 +171,7 @@ if __name__ == '__main__':
     
     census_database_url = "http://api.census.gov/data/1994/zbp"
     census_variable = "PAYQTR1"
-    census_predicate = f"zipcode:{','.join([i for i in set(my_df['postcode_str'])])}"
+    census_predicate = f"ZIPCODE:{','.join([i for i in set(my_df['postcode_str'])])}"
 
     cq.set_census_database_url(census_database_url)
     cq.set_census_variable(census_variable)
