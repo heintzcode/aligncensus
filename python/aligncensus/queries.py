@@ -15,14 +15,6 @@ class CensusQuery():
         self.census_api_key = None
         self.querychecker = QueryChecker()
 
-    def create_request(self):
-        """
-        First checks that all parts of the request are valid
-        Slots the provided query parts into the correct syntax of a US Census API request
-        """
-        self.querychecker.check_request()
-        self.request = f"{self.census_database_url}?get={self.census_variable}&for={self.census_predicate}&key={self.census_api_key}"
-    
     def set_census_database_url(self, url):
         """
         Sets the `census_database_url` field, which can be found here: https://api.census.gov/data.html
@@ -63,6 +55,14 @@ class CensusQuery():
             self.census_api_key = keyfile.readline().rstrip()
             self.querychecker.api_key = self.census_api_key
 
+    def create_request(self):
+        """
+        First checks that all parts of the request are valid
+        Slots the provided query parts into the correct syntax of a US Census API request
+        """
+        self.querychecker.check_request()
+        self.request = f"{self.census_database_url}?get={self.census_variable}&for={self.census_predicate}&key={self.census_api_key}"
+    
     def response_code_is_good(self):
         """
         Parses the response to an API request for the status code only
@@ -98,6 +98,9 @@ class QueryChecker():
         self.valid_predicates = []
 
     def check_request(self):
+        """
+        Check each segment of the request in turn and provide helpful output if something fails
+        """
         assert(self.api_key is not None), f"Set the census api key with `CensusQuery.set_census_api_key` before checking or making request"
         assert(self.url is not None), f"Set the database url with `CensusQuery.set_census_database_url` before checking or making request"
         self.check_url()
